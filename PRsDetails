@@ -1,0 +1,18 @@
+name: Add PR Report Comment
+
+on: 
+  pull_requests:
+    types: [closed]
+
+permissions:
+  conternts: read
+  pull-requests: write
+
+jobs:
+  add-pr-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate PR Report and Comment
+        uses: philips-software/pull-request-report-action@v0.1.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
