@@ -29,7 +29,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN: ${{ secrets.PR_TOKEN }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_STATE: ${{ github.event.pull_request.state }}
           PR_MERGED: ${{ github.event.pull_request.merged }}
