@@ -19,8 +19,7 @@ permissions:
 jobs:
   generate-csv:    
     runs-on: ubuntu-latest
-    if: github.event.input.pr_number != null && 
-        github.event.pull_request.user.login == 'tthirmal'
+    if: github.event.input.pr_number != null
 
     steps:
       - uses: actions/checkout@v4
