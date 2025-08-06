@@ -12,26 +12,47 @@ jobs:
   generate-csv:
     if: github.event.pull_request.user.login == 'tthirmal'
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Create CSV of Changed Files
+      - uses: actions/checkout@v4
+
+      - name: Fetch PR files and reviewers and create CSV report
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          TOKEN: ${{ secrets.PR_TOKEN }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_STATE: ${{ github.event.pull_request.state }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
         run: |
+          # Fetch changed files
           curl -H "Authorization: token $TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files \
-            > pr_files.json
+            https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files > pr_files.json
 
-          echo "filename,status,additions,deletions" > pr_files.csv
-          jq -r '.[] | [.filename, .status, .additions, .deletions] | @csv' pr_files.json >> pr_files.csv
+          # Fetch requested reviewers
+          curl -H "Authorization: token $TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/requested_reviewers > reviewers.json
+
+          # Extract reviewers' usernames
+          REVIEWERS=$(jq -r '.users[].login' reviewers.json | paste -sd "," -)
+
+          # Create CSV file header including metadata columns
+          echo "filename,status,additions,deletions,pr_author,pr_state,pr_merged,reviewers" > pr_report.csv
+
+          # Append files info + metadata for each file
+          jq -c '.[]' pr_files.json | while read -r file; do
+            filename=$(echo "$file" | jq -r .filename)
+            status=$(echo "$file" | jq -r .status)
+            additions=$(echo "$file" | jq -r .additions)
+            deletions=$(echo "$file" | jq -r .deletions)
+            echo "\"$filename\",\"$status\",$additions,$deletions,\"$PR_AUTHOR\",\"$PR_STATE\",\"$PR_MERGED\",\"$REVIEWERS\"" \
+              >> pr_report.csv
+          done
 
       - name: Upload CSV Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pr-files-report
-          path: pr_files.csv
+          name: pr-detailed-report
+          path: pr_report.csv
