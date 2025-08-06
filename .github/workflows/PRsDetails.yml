@@ -9,10 +9,29 @@ permissions:
   pull-requests: write
 
 jobs:
-  add-pr-report:
+  generate-csv:
+    if: github.event.pull_request.user.login == 'your-github-username'
     runs-on: ubuntu-latest
     steps:
-      - name: Generate PR Report and Comment
-        uses: philips-software/pull-request-report-action@v0.1.2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Create CSV of Changed Files
         env:
-          GITHUB_TOKEN: ${{ secrets.PR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.PR_TOKEN }}
+        run: |
+          curl -H "Authorization: token $TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files \
+            > pr_files.json
+
+          echo "filename,status,additions,deletions" > pr_files.csv
+          jq -r '.[] | [.filename, .status, .additions, .deletions] | @csv' pr_files.json >> pr_files.csv
+
+      - name: Upload CSV Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: pr-files-report
+          path: pr_files.csv
