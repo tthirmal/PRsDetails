@@ -1,66 +1,74 @@
-name: Add PR Report Comment
+name: Generate PR Detailed Report (Manual Run)
 
-on: 
+on:
   workflow_dispatch:
     inputs:
       pr_number:
         description: 'Pull Request Number'
-        required: false
-      pr_author:
-        description: 'Pull Request Author'
-        required: false
-  #pull_request:
-    #types: [opened]
-
-permissions:
-  contents: read
-  pull-requests: write
+        required: true
+        type: number
 
 jobs:
-  generate-csv:    
+  generate-report:
     runs-on: ubuntu-latest
-    if: github.event.pull_request != null && 
-        github.event.pull_request.user.login == 'tthirmal'
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Fetch PR files and reviewers and create CSV report
+      - name: Generate PR report CSV
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PR_STATE: ${{ github.event.pull_request.state }}
-          PR_MERGED: ${{ github.event.pull_request.merged }}
+          TOKEN: ${{ secrets.PR_TOKEN }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
         run: |
-          # Fetch changed files
-          curl -H "Authorization: token $TOKEN" \
+          echo "Fetching data for PR #$PR_NUMBER in repo $REPO"
+
+          # Fetch PR metadata
+          pr_response=$(curl -s -H "Authorization: token $TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files > pr_files.json
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER")
+
+          # Extract author, state, merged status
+          PR_AUTHOR=$(echo "$pr_response" | jq -r '.user.login')
+          PR_STATE=$(echo "$pr_response" | jq -r '.state')
+          PR_MERGED=$(echo "$pr_response" | jq -r '.merged')
+
+          echo "PR Author: $PR_AUTHOR"
+          echo "PR State: $PR_STATE"
+          echo "PR Merged: $PR_MERGED"
+
+          # Fetch changed files
+          curl -s -H "Authorization: token $TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files" > pr_files.json
 
           # Fetch requested reviewers
-          curl -H "Authorization: token $TOKEN" \
+          curl -s -H "Authorization: token $TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/requested_reviewers > reviewers.json
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" > reviewers.json
 
-          # Extract reviewers' usernames
+          # Extract reviewers usernames as comma-separated string
           REVIEWERS=$(jq -r '.users[].login' reviewers.json | paste -sd "," -)
 
-          # Create CSV file header including metadata columns
+          # Create CSV header
           echo "filename,status,additions,deletions,pr_author,pr_state,pr_merged,reviewers" > pr_report.csv
 
-          # Append files info + metadata for each file
+          # Add a CSV row for each changed file with PR metadata
           jq -c '.[]' pr_files.json | while read -r file; do
             filename=$(echo "$file" | jq -r .filename)
             status=$(echo "$file" | jq -r .status)
             additions=$(echo "$file" | jq -r .additions)
             deletions=$(echo "$file" | jq -r .deletions)
-            echo "\"$filename\",\"$status\",$additions,$deletions,\"$PR_AUTHOR\",\"$PR_STATE\",\"$PR_MERGED\",\"$REVIEWERS\"" \
-              >> pr_report.csv
+            echo "\"$filename\",\"$status\",$additions,$deletions,\"$PR_AUTHOR\",\"$PR_STATE\",\"$PR_MERGED\",\"$REVIEWERS\"" >> pr_report.csv
           done
 
-      - name: Upload CSV Artifact
+          echo "PR report CSV generated:"
+          cat pr_report.csv
+
+      - name: Upload CSV artifact
         uses: actions/upload-artifact@v4
         with:
           name: pr-detailed-report
