@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   generate-csv:
-    if: github.event.pull_request.user.login == 'your-github-username'
+    if: github.event.pull_request.user.login == 'tthirmal'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
