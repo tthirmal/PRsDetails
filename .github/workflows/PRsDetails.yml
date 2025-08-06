@@ -1,11 +1,11 @@
 name: Add PR Report Comment
 
 on: 
-  pull_requests:
+  pull_request:
     types: [closed]
 
 permissions:
-  conternts: read
+  contents: read
   pull-requests: write
 
 jobs:
@@ -15,4 +15,4 @@ jobs:
       - name: Generate PR Report and Comment
         uses: philips-software/pull-request-report-action@v0.1.2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PR_TOKEN }}
