@@ -1,11 +1,11 @@
 name: Add PR Report Comment
 
 on: 
-  pull_requests:
+  pull_request:
     types: [closed]
 
 permissions:
-  conternts: read
+  contents: read
   pull-requests: write
 
 jobs:
