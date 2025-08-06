@@ -19,7 +19,7 @@ permissions:
 jobs:
   generate-csv:    
     runs-on: ubuntu-latest
-    if: github.event.pull_request != null && 
+    if: github.event.input.pr_number != null && 
         github.event.pull_request.user.login == 'tthirmal'
 
     steps:
